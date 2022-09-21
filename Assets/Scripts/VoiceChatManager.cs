@@ -108,7 +108,7 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
             }
             else
             {
-                Debug.LogError("Too Far.");
+                PopupManager.Instance.ShowPopup($"You are too far from TV, Get in range to perform this action.", MessageType.Info, PopupType.OneButton);
             }
         }
     }
@@ -208,6 +208,7 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
         if (curruntScreensharingPlayer != null && curruntScreensharingPlayer!= RoomManager.Instance.MyPlayer)
         {
             Debug.LogError("Someone else is playing, ask them to turn off their sceen.");
+            PopupManager.Instance.ShowPopup($"{curruntScreensharingPlayer.photonView.Owner.NickName} is sharing screen, ask {curruntScreensharingPlayer.photonView.Owner.NickName} to turn off their sceen.", MessageType.Error, PopupType.OneButton);
             return;
         }
 

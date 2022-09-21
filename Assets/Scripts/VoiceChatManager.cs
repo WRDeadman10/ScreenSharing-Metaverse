@@ -145,7 +145,7 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
 
     public void JoinCall()
     {
-        GetAudioRecordingDeviceCount = -1
+        GetAudioRecordingDeviceCount = -1;
         if (GetAudioRecordingDeviceCount > 1)
         {
             audioCallChannel = rtcEngine.CreateChannel(PhotonNetwork.CurrentRoom.Name + "AudioCall");

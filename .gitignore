@@ -10,3 +10,5 @@ UserSettings/
 *.csproj
 .vs/
 *.sln
+Logs/
+Temp/

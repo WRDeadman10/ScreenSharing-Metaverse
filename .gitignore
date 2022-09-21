@@ -1,0 +1,12 @@
+Library/
+obj/
+Build/
+Assets/Photon/
+Assets/AgoraEngine/
+Assets/NWH/
+Assets/TextMesh Pro/
+UserSettings/
+*.zip
+*.csproj
+.vs/
+*.sln

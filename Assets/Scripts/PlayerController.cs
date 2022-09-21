@@ -164,7 +164,10 @@ public class PlayerController : MonoBehaviourPunCallbacks, IDamageable
 	{
 		if(!PV.IsMine && targetPlayer == PV.Owner)
 		{
-			EquipItem((int)changedProps["itemIndex"]);
+			if (changedProps["itemIndex"] != null)
+			{
+				EquipItem((int)changedProps["itemIndex"]);
+			}
 		}
 	}
 

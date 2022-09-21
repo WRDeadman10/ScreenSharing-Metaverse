@@ -53,9 +53,8 @@ public class Launcher : MonoBehaviourPunCallbacks
 		}
 
 		RoomOptions roomOption = new RoomOptions();
-		Hashtable CustomRoomProperties = new Hashtable();
-		CustomRoomProperties["RoomNumber"] = (byte)RoomNumber;
-		roomOption.CustomRoomProperties = CustomRoomProperties;
+		RoomManager.RoomProperties["RoomNumber"] = (byte)RoomNumber;
+		roomOption.CustomRoomProperties = RoomManager.RoomProperties;
 		roomOption.CustomRoomPropertiesForLobby = new string[] {
 			"RoomNumber"
 		};

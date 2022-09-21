@@ -33,6 +33,7 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
         else
         {
             Instance = this;
+            UnityEngine.Rendering.DebugManager.instance.enableRuntimeUI = false;
             DontDestroyOnLoad(gameObject);
         }
     }
@@ -52,8 +53,8 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
         rtcEngine.OnError += OnError;
         rtcEngine.OnUserJoined += onUserJoined;
 
-        rtcEngine.SetChannelProfile(CHANNEL_PROFILE.CHANNEL_PROFILE_LIVE_BROADCASTING);
-        rtcEngine.SetMultiChannelWant(true);
+       // rtcEngine.SetChannelProfile(CHANNEL_PROFILE.CHANNEL_PROFILE_LIVE_BROADCASTING);
+        //rtcEngine.SetMultiChannelWant(true);
         rtcEngine.EnableSoundPositionIndication(true);
 
         VideoEncoderConfiguration videoEncoderConfiguration = new VideoEncoderConfiguration
@@ -98,9 +99,16 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
     {
         if (Input.GetKeyDown(KeyCode.F))
         {
-            if (rtcEngine != null)
+            if (TheAssigner.Instance.isInAreaToPresentScreen)
             {
-                StartSharingScreen();
+                if (rtcEngine != null)
+                {
+                    StartSharingScreen();
+                }
+            }
+            else
+            {
+                Debug.LogError("Too Far.");
             }
         }
     }
@@ -133,7 +141,7 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
         Hashtable hash = new Hashtable();
         hash.Add("agoraID", uid.ToString());
         PhotonNetwork.SetPlayerCustomProperties(hash);
-        ListenTODeskotop();
+        //ListenTODeskotop();
 
         inCall = true;
     }
@@ -146,38 +154,38 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
     public void JoinCall()
     {
         GetAudioRecordingDeviceCount = -1;
-        if (GetAudioRecordingDeviceCount > 1)
-        {
-            audioCallChannel = rtcEngine.CreateChannel(PhotonNetwork.CurrentRoom.Name + "AudioCall");
-            screenSharingCallChannel = rtcEngine.CreateChannel(PhotonNetwork.CurrentRoom.Name + "AudioCall");
+        //if (GetAudioRecordingDeviceCount > 1)
+        //{
+        //    audioCallChannel = rtcEngine.CreateChannel(PhotonNetwork.CurrentRoom.Name + "AudioCall");
+        //    screenSharingCallChannel = rtcEngine.CreateChannel(PhotonNetwork.CurrentRoom.Name + "AudioCall");
 
-            ChannelMediaOptions channelMediaOptions = new ChannelMediaOptions();
-            channelMediaOptions.autoSubscribeAudio = true;
-            channelMediaOptions.autoSubscribeVideo = false;
-            channelMediaOptions.publishLocalAudio = true;
-            channelMediaOptions.publishLocalVideo = false;
+        //    ChannelMediaOptions channelMediaOptions = new ChannelMediaOptions();
+        //    channelMediaOptions.autoSubscribeAudio = true;
+        //    channelMediaOptions.autoSubscribeVideo = false;
+        //    channelMediaOptions.publishLocalAudio = true;
+        //    channelMediaOptions.publishLocalVideo = false;
 
-            int status = audioCallChannel.JoinChannel("", "", (uint)RoomManager.Instance.MyPlayer.photonView.ViewID, channelMediaOptions);
+        //    int status = audioCallChannel.JoinChannel("", "", (uint)RoomManager.Instance.MyPlayer.photonView.ViewID, channelMediaOptions);
 
-            Debug.Log("audioCallChannel.JoinChannel : " + status);
+        //    Debug.Log("audioCallChannel.JoinChannel : " + status);
 
 
-            channelMediaOptions.autoSubscribeAudio = false;
-            channelMediaOptions.autoSubscribeVideo = false;
-            channelMediaOptions.publishLocalAudio = true;
-            channelMediaOptions.publishLocalVideo = true;
+        //    channelMediaOptions.autoSubscribeAudio = false;
+        //    channelMediaOptions.autoSubscribeVideo = false;
+        //    channelMediaOptions.publishLocalAudio = true;
+        //    channelMediaOptions.publishLocalVideo = true;
 
-            status = screenSharingCallChannel.JoinChannel("", "", (uint)RoomManager.Instance.MyPlayer.photonView.ViewID, channelMediaOptions);
-            screenSharingCallChannel.SetClientRole(CLIENT_ROLE_TYPE.CLIENT_ROLE_BROADCASTER);
-            Debug.Log("screenSharingCallChannel.JoinChannel : " + status);
+        //    status = screenSharingCallChannel.JoinChannel("", "", (uint)RoomManager.Instance.MyPlayer.photonView.ViewID, channelMediaOptions);
+        //    screenSharingCallChannel.SetClientRole(CLIENT_ROLE_TYPE.CLIENT_ROLE_BROADCASTER);
+        //    Debug.Log("screenSharingCallChannel.JoinChannel : " + status);
 
-        }
-        else
+        //}
+        //else
         {
             int status = rtcEngine.JoinChannel(PhotonNetwork.CurrentRoom.Name, "", (uint)RoomManager.Instance.MyPlayer.photonView.ViewID);
         }
 
-        TheAssigner.Instance.refreshAudioDevices.onClick.AddListener(RefreshMicrophone);
+        //TheAssigner.Instance.refreshAudioDevices.onClick.AddListener(RefreshMicrophone);
         //Debug.Log("JoinChannel : " + status);
     }
 
@@ -197,16 +205,23 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
 
     public void StartSharingScreen()
     {
-        if (curruntScreensharingPlayer != null)
+        if (curruntScreensharingPlayer != null && curruntScreensharingPlayer!= RoomManager.Instance.MyPlayer)
         {
-            Debug.LogError("Someone else is playing, Aks them to turn of their sceen.");
+            Debug.LogError("Someone else is playing, ask them to turn off their sceen.");
+            return;
         }
 
-        RoomManager.Instance.MyPlayer.TellOhersToTurnOfTheTV();
         shareScreen = !shareScreen;
         //StopScreenCapture();
         if (shareScreen)
         {
+            RoomManager.Instance.MyPlayer.TellOhersToTurnOfTheTV();
+
+            RoomManager.RoomProperties["isPresenting"] = true.ToString();
+            RoomManager.RoomProperties["UIDOfPresenter"] = curruntScreensharingPlayer.photonView.ViewID.ToString();
+            PhotonNetwork.CurrentRoom.SetCustomProperties(RoomManager.RoomProperties);
+
+
             rtcEngine.SetChannelProfile(CHANNEL_PROFILE.CHANNEL_PROFILE_LIVE_BROADCASTING);
             rtcEngine.SetClientRole(CLIENT_ROLE_TYPE.CLIENT_ROLE_BROADCASTER);
             int status = rtcEngine.MuteLocalVideoStream(!true);
@@ -278,48 +293,57 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
 
     internal void OnVideoUserJoined(uint uid, int elapsed)
     {
-        PlayerRCPCarrier Parent = null;
+        StartCoroutine(enumerator());
+        IEnumerator enumerator(){
+            Debug.Log(PhotonNetwork.CurrentRoom.PlayerCount + " PhotonNetwork.CurrentRoom.PlayerCount");
+            yield return new WaitUntil(()=> RoomManager.Instance.ActivePlayerList.Count == PhotonNetwork.CurrentRoom.PlayerCount);
+            PlayerRCPCarrier Parent = null;
 
-        for (int i = 0; i < RoomManager.Instance.ActivePlayerList.Count; i++)
-        {
-            if (RoomManager.Instance.ActivePlayerList[i].photonView.ViewID == uid)
+            for (int i = 0; i < RoomManager.Instance.ActivePlayerList.Count; i++)
             {
-                Parent = RoomManager.Instance.ActivePlayerList[i];
-                break;
-            }
-        }
-
-        Debug.Log("onUserJoined: uid = " + uid + " elapsed = " + elapsed);
-        // this is called in main thread
-
-        Parent.MyTV = Instantiate(TheAssigner.Instance.TVParent, TheAssigner.Instance.TVParent.transform.parent);
-        VideoSurface videoSurface = Parent.MyTV.AddComponent<VideoSurface>();
-
-        Parent.MyTV.name = uid.ToString();
-        if (!ReferenceEquals(videoSurface, null))
-        {
-            // configure videoSurface
-            if (uid == RoomManager.Instance.MyPlayer.photonView.ViewID)
-            {
-                Debug.Log("Mah Player");
-                videoSurface.SetForUser(0);
-            }
-            else
-            {
-                if (GetAudioRecordingDeviceCount > 1)
+                if (RoomManager.Instance.ActivePlayerList[i].photonView.ViewID == uid)
                 {
-                    videoSurface.SetForMultiChannelUser(screenSharingCallChannel.ChannelId(), uid);
+                    Parent = RoomManager.Instance.ActivePlayerList[i];
+                    break;
+                }
+            }
+
+            if (Parent == null)
+            {
+                Debug.LogError("Terrible Thing Has happend. Paret is null");
+            }
+            Debug.Log("onUserJoined: uid = " + uid + " elapsed = " + elapsed);
+            // this is called in main thread
+
+            Parent.MyTV = Instantiate(TheAssigner.Instance.TVParent, TheAssigner.Instance.TVParent.transform.parent);
+            VideoSurface videoSurface = Parent.MyTV.AddComponent<VideoSurface>();
+
+            Parent.MyTV.name = uid.ToString();
+            if (!ReferenceEquals(videoSurface, null))
+            {
+                // configure videoSurface
+                if (uid == RoomManager.Instance.MyPlayer.photonView.ViewID)
+                {
+                    Debug.Log("Mah Player");
+                    videoSurface.SetForUser(0);
                 }
                 else
                 {
-                    videoSurface.SetForUser(uid);
+                    //if (GetAudioRecordingDeviceCount > 1)
+                    //{
+                    //    videoSurface.SetForMultiChannelUser(screenSharingCallChannel.ChannelId(), uid);
+                    //}
+                    //else
+                    {
+                        videoSurface.SetForUser(uid);
+                    }
                 }
+                videoSurface.EnableFilpTextureApply(true, false);
+                videoSurface.SetEnable(true);
+                videoSurface.SetVideoSurfaceType(AgoraVideoSurfaceType.Renderer);
             }
-            videoSurface.EnableFilpTextureApply(true, false);
-            videoSurface.SetEnable(true);
-            videoSurface.SetVideoSurfaceType(AgoraVideoSurfaceType.Renderer);
+            Parent.MyTV.SetActive(false);
         }
-        Parent.MyTV.SetActive(false);
     }
     //--------------------------------------------------------------------------------------------
     bool GrabSceneAudio = true;
@@ -432,114 +456,114 @@ public class VoiceChatManager : MonoBehaviourPunCallbacks
     private AgoraChannel screenSharingCallChannel;
     private AgoraChannel audioCallChannel;
 
-    public void RefreshAudio()
-    {
-        audioPlaybackDeviceManager.ReleaseAAudioPlaybackDeviceManager();
-        audioPlaybackDeviceManager.CreateAAudioPlaybackDeviceManager();
+    //public void RefreshAudio()
+    //{
+    //    audioPlaybackDeviceManager.ReleaseAAudioPlaybackDeviceManager();
+    //    audioPlaybackDeviceManager.CreateAAudioPlaybackDeviceManager();
 
-        Transform SpeakerButtonPrefebParent = TheAssigner.Instance.SpeakerButtonPrefeb.parent;
+    //    Transform SpeakerButtonPrefebParent = TheAssigner.Instance.SpeakerButtonPrefeb.parent;
 
-        for (int k = 1; k < SpeakerButtonPrefebParent.childCount; k++)
-        {
-            Destroy(SpeakerButtonPrefebParent.GetChild(k).gameObject);
-        }
+    //    for (int k = 1; k < SpeakerButtonPrefebParent.childCount; k++)
+    //    {
+    //        Destroy(SpeakerButtonPrefebParent.GetChild(k).gameObject);
+    //    }
 
-        AudioDevices.Clear();
-        int GetAudioPlaybackDeviceCount = audioPlaybackDeviceManager.GetAudioPlaybackDeviceCount();
-        if (GetAudioPlaybackDeviceCount >= 1)
-        {
-            SpeakerButtonPrefebParent.GetChild(0).gameObject.SetActive(false);
-        }
-        else
-        {
-            SpeakerButtonPrefebParent.GetChild(0).gameObject.SetActive(true);
-        }
+    //    AudioDevices.Clear();
+    //    int GetAudioPlaybackDeviceCount = audioPlaybackDeviceManager.GetAudioPlaybackDeviceCount();
+    //    if (GetAudioPlaybackDeviceCount >= 1)
+    //    {
+    //        SpeakerButtonPrefebParent.GetChild(0).gameObject.SetActive(false);
+    //    }
+    //    else
+    //    {
+    //        SpeakerButtonPrefebParent.GetChild(0).gameObject.SetActive(true);
+    //    }
 
-        for (int i = 0; i < GetAudioPlaybackDeviceCount; i++)
-        {
-            string devicename = string.Empty;
-            string devicenid = string.Empty;
-            audioPlaybackDeviceManager.GetAudioPlaybackDevice(i, ref devicename, ref devicenid);
-            GameObject go = Instantiate(TheAssigner.Instance.SpeakerButtonPrefeb, SpeakerButtonPrefebParent).gameObject;
-            go.GetComponentInChildren<Text>().text = devicename;
-            go.GetComponent<Button>().onClick.AddListener(delegate
-            {
-                string deviceName = devicename;
-                string devicenID = devicenid;
-                Debug.Log(deviceName);
-                int setA = audioPlaybackDeviceManager.SetAudioPlaybackDevice(devicenID);
-                //SelectedAudioDeviceText.text = $"Selected : {deviceName}";
-            });
-            go.SetActive(true);
-            AudioDevices.Add(devicenid, devicename);
-            Debug.Log($"<color=green>Audio devicename  - {devicename} devicenid - {devicenid}</color>");
-        }
+    //    for (int i = 0; i < GetAudioPlaybackDeviceCount; i++)
+    //    {
+    //        string devicename = string.Empty;
+    //        string devicenid = string.Empty;
+    //        audioPlaybackDeviceManager.GetAudioPlaybackDevice(i, ref devicename, ref devicenid);
+    //        GameObject go = Instantiate(TheAssigner.Instance.SpeakerButtonPrefeb, SpeakerButtonPrefebParent).gameObject;
+    //        go.GetComponentInChildren<Text>().text = devicename;
+    //        go.GetComponent<Button>().onClick.AddListener(delegate
+    //        {
+    //            string deviceName = devicename;
+    //            string devicenID = devicenid;
+    //            Debug.Log(deviceName);
+    //            int setA = audioPlaybackDeviceManager.SetAudioPlaybackDevice(devicenID);
+    //            //SelectedAudioDeviceText.text = $"Selected : {deviceName}";
+    //        });
+    //        go.SetActive(true);
+    //        AudioDevices.Add(devicenid, devicename);
+    //        Debug.Log($"<color=green>Audio devicename  - {devicename} devicenid - {devicenid}</color>");
+    //    }
 
-        string currentSelectedDevice = string.Empty;
-        audioPlaybackDeviceManager.GetCurrentPlaybackDevice(ref currentSelectedDevice);
-        foreach (KeyValuePair<string, string> item in AudioDevices)
-        {
-            if (item.Key == currentSelectedDevice)
-            {
-                TheAssigner.Instance.SelectedAudioDeviceText.text = $"Selected : {item.Value}";
-                break;
-            }
-        }
-    }
+    //    string currentSelectedDevice = string.Empty;
+    //    audioPlaybackDeviceManager.GetCurrentPlaybackDevice(ref currentSelectedDevice);
+    //    foreach (KeyValuePair<string, string> item in AudioDevices)
+    //    {
+    //        if (item.Key == currentSelectedDevice)
+    //        {
+    //            TheAssigner.Instance.SelectedAudioDeviceText.text = $"Selected : {item.Value}";
+    //            break;
+    //        }
+    //    }
+    //}
 
-    public void RefreshMicrophone()
-    {
-        audioRecordingDeviceManager.ReleaseAAudioRecordingDeviceManager();
-        audioRecordingDeviceManager.CreateAAudioRecordingDeviceManager();
+    //public void RefreshMicrophone()
+    //{
+    //    audioRecordingDeviceManager.ReleaseAAudioRecordingDeviceManager();
+    //    audioRecordingDeviceManager.CreateAAudioRecordingDeviceManager();
 
-        Transform SpeakerButtonPrefebParent = TheAssigner.Instance.SpeakerButtonPrefeb.parent;
+    //    Transform SpeakerButtonPrefebParent = TheAssigner.Instance.SpeakerButtonPrefeb.parent;
 
-        for (int k = 1; k < SpeakerButtonPrefebParent.childCount; k++)
-        {
-            Destroy(SpeakerButtonPrefebParent.GetChild(k).gameObject);
-        }
+    //    for (int k = 1; k < SpeakerButtonPrefebParent.childCount; k++)
+    //    {
+    //        Destroy(SpeakerButtonPrefebParent.GetChild(k).gameObject);
+    //    }
 
-        AudioDevices.Clear();
-        GetAudioRecordingDeviceCount = audioRecordingDeviceManager.GetAudioRecordingDeviceCount();
-        if (GetAudioRecordingDeviceCount >= 1)
-        {
-            SpeakerButtonPrefebParent.GetChild(0).gameObject.SetActive(false);
-        }
-        else
-        {
-            SpeakerButtonPrefebParent.GetChild(0).gameObject.SetActive(true);
-        }
+    //    AudioDevices.Clear();
+    //    GetAudioRecordingDeviceCount = audioRecordingDeviceManager.GetAudioRecordingDeviceCount();
+    //    if (GetAudioRecordingDeviceCount >= 1)
+    //    {
+    //        SpeakerButtonPrefebParent.GetChild(0).gameObject.SetActive(false);
+    //    }
+    //    else
+    //    {
+    //        SpeakerButtonPrefebParent.GetChild(0).gameObject.SetActive(true);
+    //    }
 
-        for (int i = 0; i < GetAudioRecordingDeviceCount; i++)
-        {
-            string devicename = string.Empty;
-            string devicenid = string.Empty;
-            audioRecordingDeviceManager.GetAudioRecordingDevice(i, ref devicename, ref devicenid);
-            GameObject go = Instantiate(TheAssigner.Instance.SpeakerButtonPrefeb, SpeakerButtonPrefebParent).gameObject;
-            go.GetComponentInChildren<Text>().text = devicename;
-            go.GetComponent<Button>().onClick.AddListener(delegate
-            {
-                string deviceName = devicename;
-                string devicenID = devicenid;
-                Debug.Log(deviceName);
-                int setA = audioRecordingDeviceManager.SetAudioRecordingDevice(devicenID);
-                //SelectedAudioDeviceText.text = $"Selected : {deviceName}";
-            });
-            go.SetActive(true);
-            AudioDevices.Add(devicenid, devicename);
-            Debug.Log($"<color=green>Audio devicename  - {devicename} devicenid - {devicenid}</color>");
-        }
+    //    for (int i = 0; i < GetAudioRecordingDeviceCount; i++)
+    //    {
+    //        string devicename = string.Empty;
+    //        string devicenid = string.Empty;
+    //        audioRecordingDeviceManager.GetAudioRecordingDevice(i, ref devicename, ref devicenid);
+    //        GameObject go = Instantiate(TheAssigner.Instance.SpeakerButtonPrefeb, SpeakerButtonPrefebParent).gameObject;
+    //        go.GetComponentInChildren<Text>().text = devicename;
+    //        go.GetComponent<Button>().onClick.AddListener(delegate
+    //        {
+    //            string deviceName = devicename;
+    //            string devicenID = devicenid;
+    //            Debug.Log(deviceName);
+    //            int setA = audioRecordingDeviceManager.SetAudioRecordingDevice(devicenID);
+    //            //SelectedAudioDeviceText.text = $"Selected : {deviceName}";
+    //        });
+    //        go.SetActive(true);
+    //        AudioDevices.Add(devicenid, devicename);
+    //        Debug.Log($"<color=green>Audio devicename  - {devicename} devicenid - {devicenid}</color>");
+    //    }
 
-        string currentSelectedDevice = string.Empty;
-        audioRecordingDeviceManager.GetCurrentRecordingDevice(ref currentSelectedDevice);
-        foreach (KeyValuePair<string, string> item in AudioDevices)
-        {
-            if (item.Key == currentSelectedDevice)
-            {
-                TheAssigner.Instance.SelectedAudioDeviceText.text = $"Selected : {item.Value}";
-                break;
-            }
-        }
-        JoinCall();
-    }
+    //    string currentSelectedDevice = string.Empty;
+    //    audioRecordingDeviceManager.GetCurrentRecordingDevice(ref currentSelectedDevice);
+    //    foreach (KeyValuePair<string, string> item in AudioDevices)
+    //    {
+    //        if (item.Key == currentSelectedDevice)
+    //        {
+    //            TheAssigner.Instance.SelectedAudioDeviceText.text = $"Selected : {item.Value}";
+    //            break;
+    //        }
+    //    }
+    //    JoinCall();
+    //}
 }

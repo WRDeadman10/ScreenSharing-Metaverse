@@ -15,11 +15,15 @@ namespace WR.ScreenShare
         private void Awake()
         {
             photonView = GetComponent<PhotonView>();
+            RoomManager.Instance.ActivePlayerList.Add(this);
         }
         void Start()
         {
-            RoomManager.Instance.ActivePlayerList.Add(this);
-            name = photonView.ViewID + "";
+            name = photonView.ViewID + " "+ photonView.Owner.NickName;
+            if (photonView.IsMine)
+            {
+                VoiceChatManager.Instance.JoinCall();
+            }
         }
 
         public void TellOhersToTurnOfTheTV()
@@ -42,11 +46,21 @@ namespace WR.ScreenShare
                     RoomManager.Instance.ActivePlayerList[i].MyTV.SetActive(false);
                 }
             }
-            VoiceChatManager.Instance.curruntScreensharingPlayer = this;
-            MyTV.SetActive(true);
-            TheAssigner.Instance.TVParent.SetActive(false);
+            SetupScreenSharingParameters();
         }
 
+       public void SetupScreenSharingParameters()
+        {
+            VoiceChatManager.Instance.curruntScreensharingPlayer = this;
+            TheAssigner.Instance.CurrentScreenSharingPlayerNameText.text = photonView.Owner.NickName + " is presenting the screen.";
+            StartCoroutine(enumerator());
+            IEnumerator enumerator()
+            {
+                yield return new WaitUntil(() => MyTV != null);
+                MyTV.SetActive(true);
+                TheAssigner.Instance.TVParent.SetActive(false);
+            }
+        }
         public void TellOhersIAMTurningOffTheTV()
         {
             photonView.RPC(nameof(TellOhersIAMTurningOffTheTVRPC), RpcTarget.All);
@@ -59,6 +73,12 @@ namespace WR.ScreenShare
             MyTV.SetActive(false);
             TheAssigner.Instance.TVParent.SetActive(true);
             VoiceChatManager.Instance.curruntScreensharingPlayer = null;
+            TheAssigner.Instance.CurrentScreenSharingPlayerNameText.text = @"Press 'F' to Share Screen";
+        }
+
+        private void OnDisable()
+        {
+            RoomManager.Instance.ActivePlayerList.Remove(this);
         }
     }
 }
